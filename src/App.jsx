@@ -13,15 +13,13 @@ import {
   Search
 } from 'lucide-react';
 
-import { db } from "./firebase";
 import {
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc,
-  getDocs
-} from "firebase/firestore";
+  getTickets,
+  createTicket,
+  removeTicket,
+  updateTicketStatus
+} from "./services/ticketsService";
+
 
 const App = () => {
   const [activeTab, setActiveTab] = useState('tutorial');
@@ -31,16 +29,13 @@ const App = () => {
   const [auditResults, setAuditResults] = useState([]);
 
   useEffect(() => {
-    const cargarTickets = async () => {
-      const querySnapshot = await getDocs(collection(db, "tickets"));
-      const data = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setTickets(data);
-    };
-    cargarTickets();
-  }, []);
+  const cargarTickets = async () => {
+    const data = await getTickets();
+    setTickets(data);
+  };
+  cargarTickets();
+}, []);
+
   
   // --- Lógica de Auditoría de Código ---
   const runAudit = () => {
@@ -86,6 +81,8 @@ const App = () => {
   };
 
   // --- Lógica del Dashboard de Mantenimiento ---
+ 
+
   const addTicket = async () => {
   if (!newTicket.title) return;
 
@@ -95,12 +92,12 @@ const App = () => {
     date: new Date().toLocaleDateString()
   };
 
-  const docRef = await addDoc(collection(db, "tickets"), ticket);
+  const savedTicket = await createTicket(ticket);
+  setTickets([savedTicket, ...tickets]);
 
-  setTickets([{ id: docRef.id, ...ticket }, ...tickets]);
   setNewTicket({ title: "", type: "Correctivo", priority: "Media" });
 };
- 
+
 const deleteTicket = async (id) => {
   await deleteDoc(doc(db, "tickets", id));
   setTickets(tickets.filter(t => t.id !== id));
@@ -108,13 +105,11 @@ const deleteTicket = async (id) => {
 
 
 
-  const toggleStatus = async (id) => {
+ const toggleStatus = async (id) => {
   const ticket = tickets.find(t => t.id === id);
   const newStatus = ticket.status === "Abierto" ? "Resuelto" : "Abierto";
 
-  await updateDoc(doc(db, "tickets", id), {
-    status: newStatus
-  });
+  await updateTicketStatus(id, newStatus);
 
   setTickets(
     tickets.map(t =>
@@ -122,6 +117,7 @@ const deleteTicket = async (id) => {
     )
   );
 };
+
 
 
   return (
