@@ -13,6 +13,16 @@ import {
   Search
 } from 'lucide-react';
 
+import { db } from "./firebase";
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  updateDoc,
+  getDocs
+} from "firebase/firestore";
+
 const App = () => {
   const [activeTab, setActiveTab] = useState('tutorial');
   const [tickets, setTickets] = useState([]);
@@ -20,6 +30,18 @@ const App = () => {
   const [codeToAudit, setCodeToAudit] = useState('// Pega tu código aquí\nvar x = 10;\nfunction test(){\n  if(x == 10){\n    alert("Error");\n  }\n}');
   const [auditResults, setAuditResults] = useState([]);
 
+  useEffect(() => {
+    const cargarTickets = async () => {
+      const querySnapshot = await getDocs(collection(db, "tickets"));
+      const data = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setTickets(data);
+    };
+    cargarTickets();
+  }, []);
+  
   // --- Lógica de Auditoría de Código ---
   const runAudit = () => {
     const findings = [];
@@ -64,27 +86,43 @@ const App = () => {
   };
 
   // --- Lógica del Dashboard de Mantenimiento ---
-  const addTicket = () => {
-    if (!newTicket.title) return;
-    const ticket = {
-      ...newTicket,
-      id: Date.now(),
-      status: 'Abierto',
-      date: new Date().toLocaleDateString()
-    };
-    setTickets([ticket, ...tickets]);
-    setNewTicket({ title: '', type: 'Correctivo', priority: 'Media' });
+  const addTicket = async () => {
+  if (!newTicket.title) return;
+
+  const ticket = {
+    ...newTicket,
+    status: "Abierto",
+    date: new Date().toLocaleDateString()
   };
 
-  const deleteTicket = (id) => {
-    setTickets(tickets.filter(t => t.id !== id));
-  };
+  const docRef = await addDoc(collection(db, "tickets"), ticket);
 
-  const toggleStatus = (id) => {
-    setTickets(tickets.map(t => 
-      t.id === id ? { ...t, status: t.status === 'Abierto' ? 'Resuelto' : 'Abierto' } : t
-    ));
-  };
+  setTickets([{ id: docRef.id, ...ticket }, ...tickets]);
+  setNewTicket({ title: "", type: "Correctivo", priority: "Media" });
+};
+ 
+const deleteTicket = async (id) => {
+  await deleteDoc(doc(db, "tickets", id));
+  setTickets(tickets.filter(t => t.id !== id));
+};
+
+
+
+  const toggleStatus = async (id) => {
+  const ticket = tickets.find(t => t.id === id);
+  const newStatus = ticket.status === "Abierto" ? "Resuelto" : "Abierto";
+
+  await updateDoc(doc(db, "tickets", id), {
+    status: newStatus
+  });
+
+  setTickets(
+    tickets.map(t =>
+      t.id === id ? { ...t, status: newStatus } : t
+    )
+  );
+};
+
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -329,4 +367,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default App;  
